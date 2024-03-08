@@ -113,7 +113,7 @@ class Remapping:
         self.sample_name = sample_name
         self.unmapped2genome = os.path.join(self.output_path, "unmapped-to-genome.fasta")
         self.unmapped2trsnorna = os.path.join(self.output_path, "clean.fasta")
-        self.log_file = os.path.join(self.output_path, "log_remapping.txt")
+        self.log_file = os.path.join(self.output_path, "remapping.log")
 
     def reformatting_fasta(self):
         print(f"[{datetime.datetime.now()}] Reformatting fasta header")
@@ -190,12 +190,12 @@ class Remapping:
 parser = argparse.ArgumentParser(prog=os.path.basename(__file__))
 parser.add_argument('-i', '--input', help='inputdir containing FASTQ files', required=True)
 parser.add_argument('-o', '--output', help='output path', required=True)
-parser.add_argument('-v', '--version', action='version', version='%(prog)s 20240307')
 parser.add_argument('-a', '--adapter', help='whether to trim the adapter and low quality reads')
 parser.add_argument('--mir-hairpin', help='reference miRNA hairpin index', 
                     default="/bios-store1/chenyc/Reference_Source/Arabidopsis_Reference/ath_hairpin_bowtie_index/hairpin", required=True)
 parser.add_argument('--trsno', help='reference trsnoRNA index',
                     default="/bios-store1/chenyc/Reference_Source/Arabidopsis_Reference/ath_trsnoRNA_bowtie_index/trsnoRNA", required=True)
+parser.add_argument('-v', '--version', action='version', version='%(prog)s 20240307')
 
 args = parser.parse_args()
 
