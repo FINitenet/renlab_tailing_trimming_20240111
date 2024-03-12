@@ -26,7 +26,7 @@ class Profile_maker:
     def dyc_163_profile(self):
         print(f"[{datetime.datetime.now()}] Start to generate the miRNA profile!")
         with open(self.output_file, "w") as f:
-            profile_cmd = f"perl self.script {self.metafile} {self.input_file}"
+            profile_cmd = f"perl {self.script} {self.metafile} {self.input_file}"
             subprocess.run(profile_cmd, check=True, shell=True, stdout=f)
         print(f"[{datetime.datetime.now()}] Profile generated!")
 
@@ -43,6 +43,8 @@ class Profile_maker:
             group.insert(0, last_line) 
             new_filename = newgroup[0][0].split()[0].replace("*", "_star") + ".txt"
             file = os.path.join(self.output_path, self.sample_name, new_filename)
+            if not os.path.exists(os.path.dirname(file)):
+                os.makedirs(os.path.dirname(file))
             with open(file, "w") as f:
                 f.write('\t\n'.join(['\t'.join(row) for row in group]) + '\t\n')
 
@@ -69,7 +71,7 @@ class Profile_maker:
                     header = "ID\tSUM\ttrimming\ttailling\ttail_1\ttail_2\ttail_3\ttail_4\ttail_5\ttail_6\ttail_7\ttail_8\ttail_9\ttail_10")
 
     def data_process(self):
-        print(f"[{datetime.datetime.now()}] Start to process the profile data!")
+        print(f"[{datetime.datetime.now()}] Start to process {self.sample_name} profile data!")
         self.dyc_163_profile()
         self.split_163_file()
         self.martix_summary()
@@ -101,7 +103,7 @@ class Profile_summary:
                     if i.startswith(d[2]) and d[3] == s:
                         d[2] = i
                         if d[2] == '16':
-                            d[9] = reverse_complement(d[9])
+                            d[9] = reverse_complement(d[9]) # type: ignore
                         new_line = '\t'.join([d[0], d[2], d[3], d[9]]) + '\n' # type: ignore
                         out.append(new_line)
                         break
@@ -118,19 +120,21 @@ class Profile_summary:
         df = pd.read_csv(output_file, sep='\t')
         groups = df.groupby(df.columns[1])
         for name, group in groups:
-            filename = os.path.join(self.output_path, "doc_seqlogo", self.sample_name, name.replace("*", "_star") + ".txt") # type: ignore
-            group.iloc[:, 3].apply(lambda x: x.replace('T', 'U')).to_csv(filename, sep='\t', index=False, header=False)
+            file_path = os.path.join(self.output_path, "doc_seqlogo", self.sample_name, name.replace("*", "_star") + ".txt") # type: ignore
+            if not os.path.exists(os.path.dirname(file_path)):
+                os.makedirs(os.path.dirname(file_path))
+            group.iloc[:, 3].apply(lambda x: x.replace('T', 'U')).to_csv(file_path, sep='\t', index=False, header=False)
 
         with open(self.metafile, 'r') as f:
             for line in f:
                 file_name = line.strip().split("\t")[0].replace("*","_star")
-                file_path = os.path.join(self.output_path, file_name + ".txt")
+                file_path = os.path.join(self.output_path, "doc_seqlogo", self.sample_name, file_name + ".txt")
                 if not os.path.exists(file_path):
                     with open(file_path, 'w') as f:
                         f.write('N'*30)
     
     def data_process(self):
-        print(f"[{datetime.datetime.now()}] Start to summary the profile data!")
+        print(f"[{datetime.datetime.now()}] Start to summary {self.sample_name} profile data!")
         output_file = self.get_mirna_5GMC_reads()
         self.get_mirna_5GMC_sequence(output_file)
         print(f"[{datetime.datetime.now()}] Profile data processed!")
@@ -141,7 +145,7 @@ parser = argparse.ArgumentParser(prog=os.path.basename(__file__))
 parser.add_argument('-i', '--input', help='inputdir containing merged-alignment-sorted.sam', required=True)
 parser.add_argument('-o', '--output', help='output path', required=True)
 parser.add_argument('-f', help='miRNA meta file, contains miRNA start end length', 
-                    default = os.path.join(os.path.dirname(__file__), "source/miRNA_start_sequence_length_new.txt"),required=True)
+                    default = "../source/miRNA_start_sequence_length_new.txt")
 parser.add_argument('-v', '--version', action='version', version='%(prog)s 20240307')
 
 args = parser.parse_args()
@@ -153,6 +157,7 @@ if __name__ == "__main__":
     INPUTDIR = args.input
     OUTDIR = args.output
     METAFILE = args.f
+    SCRIPT_PATH = os.path.dirname(__file__)
     PROFILE_PATH = os.path.join(OUTDIR, "4_163.results")
     SUMMARY_PATH = os.path.join(OUTDIR, "5_GMC_analysis")
 

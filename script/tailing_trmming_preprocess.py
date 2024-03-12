@@ -38,7 +38,7 @@ class Preprocess:
     def extracted_mirna_with_quality_score(self):
         records = []
         phred_scores = [0] * 100
-        with pysam.FastxFile(self.input_file) as f:
+        with pysam.FastxFile(self.input_file, threads=24) as f:
             for record in f:
                 sequence = record.sequence
                 quality = record.quality
@@ -107,7 +107,7 @@ class Preprocess:
 class Remapping:
     def __init__(self, output_path, reference, trsnorna, sample_name):
         self.input_file = preprocess.get_output_file()
-        self.output_path = os.join(output_path, sample_name)
+        self.output_path = os.path.join(output_path, sample_name)
         self.reference = reference
         self.trsnoRNA = trsnorna
         self.sample_name = sample_name
@@ -179,6 +179,8 @@ class Remapping:
     
     def data_process(self):
         print(f"[{datetime.datetime.now()}] Start to remapping the reads!")
+        if not os.path.exists(self.output_path):
+            os.mkdir(self.output_path)
         self.reformatting_fasta()
         self.remapping()
         self.merge_result()
@@ -192,9 +194,9 @@ parser.add_argument('-i', '--input', help='inputdir containing FASTQ files', req
 parser.add_argument('-o', '--output', help='output path', required=True)
 parser.add_argument('-a', '--adapter', help='whether to trim the adapter and low quality reads')
 parser.add_argument('--mir-hairpin', help='reference miRNA hairpin index', 
-                    default="/bios-store1/chenyc/Reference_Source/Arabidopsis_Reference/ath_hairpin_bowtie_index/hairpin", required=True)
+                    default="/bios-store1/chenyc/Reference_Source/Arabidopsis_Reference/ath_hairpin_bowtie_index/hairpin")
 parser.add_argument('--trsno', help='reference trsnoRNA index',
-                    default="/bios-store1/chenyc/Reference_Source/Arabidopsis_Reference/ath_trsnoRNA_bowtie_index/trsnoRNA", required=True)
+                    default="/bios-store1/chenyc/Reference_Source/Arabidopsis_Reference/ath_trsnoRNA_bowtie_index/trsnoRNA")
 parser.add_argument('-v', '--version', action='version', version='%(prog)s 20240307')
 
 args = parser.parse_args()
@@ -206,11 +208,14 @@ if __name__ == "__main__":
     INPUDIR = args.input
     OUTDIR = args.output
     FLAG = True # temporary variable, will be removed later
-    INPUT_FILES = glob.glob(os.path.join(INPUDIR, "*_R1_001.fastq.gz"))
+    INPUT_FILES = glob.glob(os.path.join(INPUDIR, "*.fastq.gz"))
 
     FORMAT_PATH = os.path.join(OUTDIR, "2_formmat_fasta")  
     MAPPING_PATH = os.path.join(OUTDIR, "3_remapping")
-
+    if not os.path.exists(FORMAT_PATH):
+        os.mkdir(FORMAT_PATH)
+    if not os.path.exists(MAPPING_PATH):
+        os.mkdir(MAPPING_PATH)
     # REF PATH
     REFERENCE = args.mir_hairpin
     TRSNORNA = args.trsno
