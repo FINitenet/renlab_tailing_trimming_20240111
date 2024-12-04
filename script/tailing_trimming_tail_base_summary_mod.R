@@ -1,8 +1,10 @@
+options(warn=-1)
 library(tidyverse)
 library(openxlsx)
 library(data.table)
 library(reshape2)
 library(lubridate)
+
 
 #######
 ### args
@@ -11,18 +13,19 @@ args <- commandArgs(trailingOnly = T)
 sample <- args[1]
 input_path <- args[2]
 
-doc_path <- paste0(args[2], "/doc/", sample,"/")
-plot_path <- paste0(args[2], "/plot/", sample,"/")
-bin_path <- paste0(args[2], "/bin/")
+doc_path <- paste0(input_path, "/5_GMC_analysis/doc/", sample,"/")
+plot_path <- paste0(input_path, "/5_GMC_analysis/plot/", sample,"/")
+bin_path <- paste0(input_path, "/5_GMC_analysis/bin/")
 
 dir.create(doc_path)
 dir.create(plot_path)
 
-meta <- read.table(args[3], header = TRUE)
+meta <- read.csv(args[3],sep = "\t", header = TRUE)
 
 #######
 ### env
-ref <- read.table("/bios-store1/chenyc/scripts/Tailing_Trimming/miRNA_start_sequence_length_dyc.txt")
+# ref <- read.table("/bios-store1/chenyc/scripts/Tailing_Trimming/miRNA_start_sequence_length_dyc.txt")
+ref <- read.table("/bios-store1/chenyc/scripts/renlab_tailing_trimming_20240111/source/miRNA_start_sequence_length_new.txt")
 ma <- read.table("/bios-store1/chenyc/Reference_Source/Arabidopsis_Reference/ath_miRNA_Mechanism_hairpin.txt", sep = "\t")
 ma1 <- read.table("/bios-store1/chenyc/scripts/Tailing_Trimming/miRNA_sequence_merge.txt", sep = "\t")[-2]
 
@@ -99,9 +102,10 @@ extract_matrix <- function(df1) {
 ### pre-processing data
 print(paste0("processing: ", sample))
 
+meta$Sample <- gsub("-", "_", meta$Sample)
 total <- meta[which(meta$Sample == sample), 3]
 
-df <- fread(paste0(input_path, sample, ".5GMC"), header = TRUE)
+df <- fread(paste0(input_path, "/5_GMC_analysis/", sample, ".5GMC"), header = TRUE)
 df <- df[, -c(3, 4)]
 df1 <- separate(df, RNAME, into = c("sample", "rank", "raw_seq", "base"), sep = "-+", convert = TRUE,remove = FALSE)
 df1$raw_len <- nchar(df1$raw_seq)
@@ -140,7 +144,7 @@ for (nt in 1:10) {
     tmp_1_summary2 <- spread(tmp_1_summary[c(1:2, 4)], key = tail_base, value = percentage, fill = 0) %>% 
       dplyr::rename("A_percentage"=A, "C_percentage"=C, "G_percentage"=G, "T_percentage"=T)
 
-    tmp_summary <- fread(paste0(input_path, "/tailing_summary/", sample, ".summary"), header = TRUE)
+    tmp_summary <- fread(paste0(input_path, "/4_163.results/", sample, ".summary.txt"), header = TRUE)
     tmp_summary <- tmp_summary %>% 
       select("# ID", SUM, tail_1) %>% 
       mutate("miRNA_tail_1/miRNA_total" = round(tail_1 / SUM * 100, 4))
@@ -180,7 +184,7 @@ for (nt in 1:10) {
       ungroup() %>% 
       mutate(global_percentage = round(((count / sum(count)) * 100), 4))
     
-    tmp_summary <- fread(paste0(input_path, "/tailing_summary/", sample, ".summary"), header = TRUE)
+    tmp_summary <- fread(paste0(input_path, "/4_163.results/", sample, ".summary.txt"), header = TRUE)
     tmp_summary <- tmp_summary %>% 
       left_join( ma, by = c("# ID" = "V1")) %>% 
       select("# ID", short_mechanism = V2, SUM, tail = paste0("tail_", nt)) %>% mutate(!!paste0("miRNA_tail_", nt, "/miRNA_total") := round( tail / SUM * 100, 4))

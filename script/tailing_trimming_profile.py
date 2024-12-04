@@ -14,10 +14,10 @@ import numpy as np
 import pandas as pd
 from Bio.Seq import reverse_complement
 
-class Profile_maker:
+class ProfileMaker:
     def __init__(self, meta_file, input_file, output_path, sample_name):
         self.metafile = meta_file
-        self.script = os.path.join(os.path.dirname(__file__), "4_163-profile.pl")
+        self.script = os.path.join(os.path.dirname(__file__), "module/4_163-profile.pl")
         self.sample_name = sample_name
         self.output_path = output_path
         self.input_file = input_file # remapping result: merged-alignment-sorted.sam
@@ -78,7 +78,7 @@ class Profile_maker:
         print(f"[{datetime.datetime.now()}] Profile data processed!")
 
 
-class Profile_summary:
+class ProfileSummary:
     def __init__(self, meta_file, input_file, output_path, sample_name):
         self.metafile = meta_file
         self.sample_name = sample_name
@@ -145,7 +145,7 @@ parser = argparse.ArgumentParser(prog=os.path.basename(__file__))
 parser.add_argument('-i', '--input', help='inputdir containing merged-alignment-sorted.sam', required=True)
 parser.add_argument('-o', '--output', help='output path', required=True)
 parser.add_argument('-f', help='miRNA meta file, contains miRNA start end length', 
-                    default = "../source/miRNA_start_sequence_length_new.txt")
+                    default = "/bios-store1/chenyc/scripts/renlab_tailing_trimming_20240111/source/miRNA_start_sequence_length_new.txt")
 parser.add_argument('-v', '--version', action='version', version='%(prog)s 20240307')
 
 args = parser.parse_args()
@@ -160,9 +160,8 @@ if __name__ == "__main__":
     SCRIPT_PATH = os.path.dirname(__file__)
     PROFILE_PATH = os.path.join(OUTDIR, "4_163.results")
     SUMMARY_PATH = os.path.join(OUTDIR, "5_GMC_analysis")
-
-    INPUT_FILES = os.path.join(INPUTDIR, "merged-alignment-sorted.sam") 
-    SAMPLE_NAME = os.path.basename(INPUTDIR)
+ 
+    SAMPLE_NAMES = os.listdir(INPUTDIR)
     
     # Create the output directory
     if not os.path.exists(PROFILE_PATH):
@@ -170,12 +169,14 @@ if __name__ == "__main__":
     if not os.path.exists(SUMMARY_PATH):
         os.makedirs(SUMMARY_PATH)
     
-    # Profile the tailing trimming results
-    profile_maker = Profile_maker(METAFILE, INPUT_FILES, PROFILE_PATH, SAMPLE_NAME)
-    profile_maker.data_process()
+    for SAMPLE_NAME in SAMPLE_NAMES:
+        INPUT_FILE = os.path.join(INPUTDIR, SAMPLE_NAME, "merged-alignment-sorted.sam")
+        # Profile the tailing trimming results
+        profile_maker = ProfileMaker(METAFILE, INPUT_FILE, PROFILE_PATH, SAMPLE_NAME)
+        profile_maker.data_process()
 
-    # Summary the tailing trimming results
-    profile_summary = Profile_summary(METAFILE, INPUT_FILES, SUMMARY_PATH, SAMPLE_NAME)
-    profile_summary.data_process()
+        # Summary the tailing trimming results
+        profile_summary = ProfileSummary(METAFILE, INPUT_FILE, SUMMARY_PATH, SAMPLE_NAME)
+        profile_summary.data_process()
 
-    print(f"[{datetime.datetime.now()}] the {SAMPLE_NAME} profile data has been processed!")
+        print(f"[{datetime.datetime.now()}] the {SAMPLE_NAME} profile data has been processed!")

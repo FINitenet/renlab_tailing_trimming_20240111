@@ -6,21 +6,17 @@
 # @Description: This script is used to preprocess the raw data of sRNA-seq, including trimming the adapter and low quality reads, and remapping the reads to the reference genome and trsnoRNA.
 
 import os
-import sys
 import glob
 import pysam
 import gzip
 import subprocess
 import datetime
-import tqdm
 import argparse
-import pandas as pd
-import numpy as np
-from multiprocessing import Process
-from Bio import SeqIO, bgzf
+import logging
+from Bio import SeqIO
 from Bio.Seq import Seq
 
-class Preprocess:
+class PreProcess:
     def __init__(self, input_file, output_path, adapter, sample_name, flag):
         self.input_file = input_file
         self.output_file = os.path.join(output_path, sample_name + "_trimmed.fasta")
@@ -104,7 +100,7 @@ class Preprocess:
     def get_output_file(self):
         return self.output_file
     
-class Remapping:
+class ReMapping:
     def __init__(self, output_path, reference, trsnorna, sample_name):
         self.input_file = preprocess.get_output_file()
         self.output_path = os.path.join(output_path, sample_name)
@@ -192,43 +188,80 @@ class Remapping:
 parser = argparse.ArgumentParser(prog=os.path.basename(__file__))
 parser.add_argument('-i', '--input', help='inputdir containing FASTQ files', required=True)
 parser.add_argument('-o', '--output', help='output path', required=True)
-parser.add_argument('-a', '--adapter', help='whether to trim the adapter and low quality reads')
+parser.add_argument('-a', '--adapter', help='whether to trim the adapter and low quality reads', default= "AGATCGGAAGAG")
 parser.add_argument('--mir-hairpin', help='reference miRNA hairpin index', 
                     default="/bios-store1/chenyc/Reference_Source/Arabidopsis_Reference/ath_hairpin_bowtie_index/hairpin")
 parser.add_argument('--trsno', help='reference trsnoRNA index',
-                    default="/bios-store1/chenyc/Reference_Source/Arabidopsis_Reference/ath_trsnoRNA_bowtie_index/trsnoRNA")
+                    default="/bios-store1/chenyc/Reference_Source/Arabidopsis_Reference/ath_trsnoRNA_bowtie_index/ensembl39_araport2016_trsRNA")
 parser.add_argument('-v', '--version', action='version', version='%(prog)s 20240307')
 
 args = parser.parse_args()
 
 ##### Script control .. go through each file and process
 
-if __name__ == "__main__":
-    # RUN PATH
-    INPUDIR = args.input
-    OUTDIR = args.output
-    FLAG = True # temporary variable, will be removed later
-    INPUT_FILES = glob.glob(os.path.join(INPUDIR, "*.fastq.gz"))
+def process_pipeline(input_dir, output_dir, adapter, reference, trsno, flag=True):
+    """
+    处理整个预处理和比对流程。
 
-    FORMAT_PATH = os.path.join(OUTDIR, "2_formmat_fasta")  
-    MAPPING_PATH = os.path.join(OUTDIR, "3_remapping")
-    if not os.path.exists(FORMAT_PATH):
-        os.mkdir(FORMAT_PATH)
-    if not os.path.exists(MAPPING_PATH):
-        os.mkdir(MAPPING_PATH)
-    # REF PATH
-    REFERENCE = args.mir_hairpin
-    TRSNORNA = args.trsno
-    ADAPTER = args.adapter
+    :param input_dir: 输入目录，包含 .fastq.gz 文件
+    :param output_dir: 输出目录
+    :param adapter: 适配序列
+    :param reference: miRNA 的参考序列文件路径
+    :param trsno: tRNA/snoRNA 的参考序列文件路径
+    :param flag: 临时标志位，默认值为 True
+    """
+    # 获取所有输入文件
+    input_files = glob.glob(os.path.join(input_dir, "*.fastq.gz"))
+    if not input_files:
+        raise FileNotFoundError(f"No .fastq.gz files found in {input_dir}")
 
-    for input_file in INPUT_FILES:
-        SAMPLE_NAME = os.path.basename(input_file).split(".")[0].replace("-", "_")
-        tag = input_file.split(".")[-1]
-        
-        preprocess = Preprocess(input_file, FORMAT_PATH, ADAPTER, SAMPLE_NAME, FLAG)
+    # 创建必要的输出目录
+    format_path = os.path.join(output_dir, "2_formmat_fasta")
+    mapping_path = os.path.join(output_dir, "3_remapping")
+    os.makedirs(format_path, exist_ok=True)
+    os.makedirs(mapping_path, exist_ok=True)
+
+    # 逐个处理文件
+    for input_file in input_files:
+        sample_name = os.path.basename(input_file).split(".")[0].replace("-", "_")
+
+        # 预处理
+        preprocess = PreProcess(input_file, format_path, adapter, sample_name, flag)
         preprocess.data_process()
-        print(f"[{datetime.datetime.now()}] Finish the preprocessing of {input_file}!")
+        print(f"[{datetime.datetime.now()}] Finished preprocessing of {input_file}!")
 
-        remapping = Remapping(MAPPING_PATH, REFERENCE, TRSNORNA, SAMPLE_NAME)
+        # 比对处理
+        remapping = ReMapping(mapping_path, reference, trsno, sample_name)
         remapping.data_process()
-        print(f"[{datetime.datetime.now()}] Finish the remapping of {SAMPLE_NAME}!")
+        print(f"[{datetime.datetime.now()}] Finished remapping of {sample_name}!")
+
+if __name__ == "__main__":
+    # # RUN PATH
+    # INPUDIR = args.input
+    # OUTDIR = args.output
+    # FLAG = True # temporary variable, will be removed later
+    # INPUT_FILES = glob.glob(os.path.join(INPUDIR, "*.fastq.gz"))
+
+    # FORMAT_PATH = os.path.join(OUTDIR, "2_formmat_fasta")  
+    # MAPPING_PATH = os.path.join(OUTDIR, "3_remapping")
+    # if not os.path.exists(FORMAT_PATH):
+    #     os.mkdir(FORMAT_PATH)
+    # if not os.path.exists(MAPPING_PATH):
+    #     os.mkdir(MAPPING_PATH)
+    # # REF PATH
+    # REFERENCE = args.mir_hairpin
+    # TRSNORNA = args.trsno
+    # ADAPTER = args.adapter
+
+    # for input_file in INPUT_FILES:
+    #     SAMPLE_NAME = os.path.basename(input_file).split(".")[0].replace("-", "_")
+    #     tag = input_file.split(".")[-1]
+        
+    #     preprocess = PreProcess(input_file, FORMAT_PATH, ADAPTER, SAMPLE_NAME, FLAG)
+    #     preprocess.data_process()
+    #     print(f"[{datetime.datetime.now()}] Finish the preprocessing of {input_file}!")
+
+    #     remapping = ReMapping(MAPPING_PATH, REFERENCE, TRSNORNA, SAMPLE_NAME)
+    #     remapping.data_process()
+    #     print(f"[{datetime.datetime.now()}] Finish the remapping of {SAMPLE_NAME}!")
+    process_pipeline(args.input, args.output, args.adapter, args.mir_hairpin, args.trsno)
