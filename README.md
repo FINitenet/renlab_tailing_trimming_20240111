@@ -1,1 +1,1 @@
-This pipeline is python script for analysis plant miRNA taling and trimming. 
+This pipeline is python script for analysis plant miRNA tailing and trimming. 
